@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackjack RL — Demo Animado</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --surface:    #161b22;
+      --surface2:   #21262d;
+      --border:     #30363d;
+      --green:      #2ea043;
+      --green-glow: #3fb950;
+      --red:        #da3633;
+      --red-glow:   #f85149;
+      --gold:       #e3b341;
+      --blue:       #388bfd;
+      --purple:     #bc8cff;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --felt:       #1a4731;
+      --felt-dark:  #112c20;
+      --card-w: 72px;
+      --card-h: 100px;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .logo { font-size: 1.4rem; font-weight: 900; letter-spacing: -0.5px; }
+    .logo span { color: var(--gold); }
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Layout principal ── */
+    .main {
+      width: 100%;
+      max-width: 1200px;
+      padding: 30px 20px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+    }
+
+    /* ── Mesa de juego ── */
+    .table-container {
+      background: radial-gradient(ellipse at 50% 40%, #1e5c3a 0%, var(--felt-dark) 70%);
+      border: 3px solid #2a6642;
+      border-radius: 24px;
+      padding: 30px 20px 24px;
+      min-height: 420px;
+      position: relative;
+      box-shadow: 0 0 60px rgba(0,0,0,0.6), inset 0 0 80px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .table-label {
+      text-align: center;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.25);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    /* ── Manos de cartas ── */
+    .hand-section { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .hand-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.5);
+    }
+    .hand { display: flex; gap: -10px; min-height: var(--card-h); align-items: center; position: relative; }
+
+    /* ── Carta ── */
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: 8px;
+      background: #fff;
+      border: 2px solid rgba(0,0,0,0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.4rem;
+      color: #111;
+      box-shadow: 2px 4px 12px rgba(0,0,0,0.5);
+      position: relative;
+      animation: cardDeal 0.35s cubic-bezier(0.34,1.56,0.64,1) both;
+      margin-left: -14px;
+      flex-shrink: 0;
+    }
+    .card:first-child { margin-left: 0; }
+    .card.red { color: #c00; }
+    .card.hidden {
+      background: repeating-linear-gradient(
+        135deg,
+        #1a3a8c 0px, #1a3a8c 4px,
+        #142d6e 4px, #142d6e 8px
+      );
+      color: transparent;
+    }
+    .card .suit { font-size: 1.8rem; line-height: 1; }
+    .card .rank { font-size: 1rem; font-weight: 900; line-height: 1; }
+    .card .corner { position: absolute; font-size: 0.65rem; font-weight: 700; line-height: 1.1; }
+    .card .corner.tl { top: 5px; left: 6px; }
+    .card .corner.br { bottom: 5px; right: 6px; transform: rotate(180deg); }
+
+    @keyframes cardDeal {
+      from { transform: translateY(-60px) scale(0.8) rotate(-5deg); opacity: 0; }
+      to   { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    /* ── Score badge ── */
+    .score-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ── Área central (estado / decisión del agente) ── */
+    .middle-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 8px 0;
+    }
+
+    .decision-bubble {
+      padding: 8px 20px;
+      border-radius: 24px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    .decision-bubble.show { opacity: 1; transform: scale(1); }
+    .decision-bubble.hit { background: rgba(59,130,246,0.25); border: 2px solid var(--blue); color: #93c5fd; }
+    .decision-bubble.stand { background: rgba(239,68,68,0.2); border: 2px solid var(--red-glow); color: #fca5a5; }
+    .decision-bubble.win { background: rgba(46,160,67,0.25); border: 2px solid var(--green-glow); color: #86efac; }
+    .decision-bubble.lose { background: rgba(218,54,51,0.2); border: 2px solid var(--red); color: #fca5a5; }
+    .decision-bubble.draw { background: rgba(139,148,158,0.2); border: 2px solid var(--muted); color: #cbd5e1; }
+
+    .q-values {
+      display: flex;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+    }
+    .q-val {
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.4);
+    }
+    .q-val.best { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Panel derecho ── */
+    .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+    }
+    .panel-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 3px; height: 14px;
+      background: var(--gold);
+      border-radius: 2px;
+    }
+
+    /* ── Stats ── */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { font-size: 0.82rem; color: var(--muted); }
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+    .stat-val.green { color: var(--green-glow); }
+    .stat-val.red { color: var(--red-glow); }
+    .stat-val.gold { color: var(--gold); }
+    .stat-val.blue { color: #93c5fd; }
+
+    /* ── Win rate bar ── */
+    .wr-bar-wrap { margin-top: 10px; }
+    .wr-bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); margin-bottom: 4px; }
+    .wr-bar-track {
+      height: 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .wr-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      background: linear-gradient(90deg, var(--green) 0%, var(--green-glow) 100%);
+      transition: width 0.4s ease;
+      box-shadow: 0 0 8px rgba(63,185,80,0.4);
+    }
+    .bs-marker {
+      position: relative;
+      margin-top: 6px;
+    }
+    .bs-marker-line {
+      position: absolute;
+      left: 42%;
+      top: -16px;
+      height: 30px;
+      width: 1px;
+      background: var(--gold);
+      opacity: 0.6;
+    }
+    .bs-marker-label {
+      position: absolute;
+      left: 43%;
+      top: -28px;
+      font-size: 0.65rem;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+
+    /* ── Heatmap mini ── */
+    .heatmap-mini {
+      display: grid;
+      grid-template-columns: auto repeat(10, 1fr);
+      gap: 2px;
+      font-size: 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .hm-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 18px;
+      border-radius: 3px;
+      font-weight: 700;
+      font-size: 0.58rem;
+      transition: background 0.3s;
+    }
+    .hm-cell.axis { color: var(--muted); background: transparent; }
+    .hm-cell.hit  { background: rgba(46,160,67,0.6); color: #86efac; }
+    .hm-cell.stand { background: rgba(218,54,51,0.5); color: #fca5a5; }
+    .hm-cell.unk  { background: var(--surface2); color: var(--border); }
+
+    /* ── Controles ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .control-row { display: flex; gap: 8px; align-items: center; }
+    .control-label { font-size: 0.78rem; color: var(--muted); width: 70px; flex-shrink: 0; }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--gold);
+      height: 4px;
+      cursor: pointer;
+    }
+    .speed-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--gold);
+      width: 45px;
+      text-align: right;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--green) 0%, #238636 100%);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(46,160,67,0.3);
+      flex: 1;
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 24px rgba(46,160,67,0.5); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--muted); }
+
+    /* ── Log de episodios ── */
+    .episode-log {
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      line-height: 1.8;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .log-entry { display: flex; gap: 8px; }
+    .log-ep { color: var(--muted); min-width: 50px; }
+    .log-res.win { color: var(--green-glow); }
+    .log-res.lose { color: var(--red-glow); }
+    .log-res.draw { color: var(--muted); }
+
+    /* ── Result overlay ── */
+    .result-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 21px;
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: 3px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .result-overlay.show { opacity: 1; }
+    .result-overlay.win-ov  { background: rgba(46,160,67,0.15); color: var(--green-glow); text-shadow: 0 0 30px rgba(63,185,80,0.8); }
+    .result-overlay.lose-ov { background: rgba(218,54,51,0.12); color: var(--red-glow);   text-shadow: 0 0 30px rgba(248,81,73,0.8); }
+    .result-overlay.draw-ov { background: rgba(139,148,158,0.12); color: var(--muted);    text-shadow: 0 0 20px rgba(139,148,158,0.5); }
+
+    /* ── Tabs heatmap ── */
+    .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+    .tab-btn {
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .tab-btn.active { background: rgba(227,179,65,0.15); border-color: var(--gold); color: var(--gold); }
+
+    /* ── Responsive ── */
+    @media (max-width: 800px) {
+      .main { grid-template-columns: 1fr; }
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 8px 0;
+    }
+
+    .legend-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+    /* Pulse animation for active step */
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(227,179,65,0.4); }
+      70%  { box-shadow: 0 0 0 8px rgba(227,179,65,0); }
+      100% { box-shadow: 0 0 0 0 rgba(227,179,65,0); }
+    }
+    .card.new { animation: cardDeal 0.35s cubic-bezier(0.34,1.56,0.64,1) both, pulse 0.5s ease 0.35s; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🃏 Blackjack <span>RL</span> Demo</div>
+  <div class="badge">Q-Learning · 500k episodios</div>
+</header>
+
+<div class="main">
+  <!-- ── Mesa de juego ── -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="table-container" id="tableContainer">
+      <div class="result-overlay" id="resultOverlay"></div>
+
+      <!-- Dealer -->
+      <div class="hand-section">
+        <div class="hand-label">Dealer</div>
+        <div class="hand" id="dealerHand"></div>
+        <div class="score-badge" id="dealerScore">–</div>
+      </div>
+
+      <!-- Área central -->
+      <div class="middle-area">
+        <div class="q-values" id="qValues" style="opacity:0">
+          <div class="q-val" id="qStand">Stand: –</div>
+          <div class="q-val" id="qHit">Hit: –</div>
+        </div>
+        <div class="decision-bubble" id="decisionBubble"></div>
+      </div>
+
+      <!-- Jugador -->
+      <div class="hand-section">
+        <div class="hand" id="playerHand"></div>
+        <div class="score-badge" id="playerScore">–</div>
+        <div class="hand-label">Agente RL</div>
+      </div>
+
+      <div class="table-label">BLACKJACK · Q-LEARNING AGENT</div>
+    </div>
+
+    <!-- ── Log ── -->
+    <div class="panel">
+      <div class="panel-title">Log de episodios</div>
+      <div class="episode-log" id="episodeLog"></div>
+    </div>
+  </div>
+
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+
+    <!-- Controles -->
+    <div class="panel">
+      <div class="panel-title">Controles</div>
+      <div class="controls">
+        <div class="control-row">
+          <span class="control-label">Velocidad</span>
+          <input type="range" id="speedSlider" min="1" max="10" value="3" />
+          <span class="speed-val" id="speedVal">×3</span>
+        </div>
+        <div class="control-row">
+          <button class="btn btn-primary" id="btnPlay" onclick="togglePlay()">▶ Iniciar</button>
+          <button class="btn btn-secondary" onclick="resetStats()">↺ Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estadísticas en vivo -->
+    <div class="panel">
+      <div class="panel-title">Estadísticas en vivo</div>
+      <div class="stat-row">
+        <span class="stat-label">Episodio</span>
+        <span class="stat-val blue" id="statEp">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Victorias</span>
+        <span class="stat-val green" id="statWins">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Derrotas</span>
+        <span class="stat-val red" id="statLosses">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Empates</span>
+        <span class="stat-val" id="statDraws">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-val gold" id="statWR">–</span>
+      </div>
+      <div class="wr-bar-wrap">
+        <div class="wr-bar-label"><span>0%</span><span>42% BS</span><span>60%</span></div>
+        <div class="wr-bar-track">
+          <div class="wr-bar-fill" id="wrBarFill" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Heatmap mini de política -->
+    <div class="panel">
+      <div class="panel-title">Política aprendida</div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="setHMTab(0, this)">Sin As</button>
+        <button class="tab-btn" onclick="setHMTab(1, this)">Con As</button>
+      </div>
+      <div id="heatmapMini"></div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(46,160,67,0.6)"></div>H = Pedir</div>
+        <div class="legend-item"><div class="legend-dot" style="background:rgba(218,54,51,0.5)"></div>S = Plantarse</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#21262d"></div>?</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Constantes del juego ───────────────────────────────────────────
+const SUITS   = ['♠','♥','♦','♣'];
+const RANKS   = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RED_SUITS = new Set(['♥','♦']);
+
+function randCard() {
+  return { rank: RANKS[Math.floor(Math.random()*13)], suit: SUITS[Math.floor(Math.random()*4)] };
+}
+
+function cardVal(card) {
+  if (card.rank === 'A') return 11;
+  if (['J','Q','K'].includes(card.rank)) return 10;
+  return parseInt(card.rank);
+}
+
+function handValue(hand) {
+  let total = 0, aces = 0;
+  for (const c of hand) {
+    total += cardVal(c);
+    if (c.rank === 'A') aces++;
+  }
+  while (total > 21 && aces > 0) { total -= 10; aces--; }
+  const usableAce = aces > 0;
+  return { total, usableAce };
+}
+
+function dealerCardVal(card) {
+  if (card.rank === 'A') return 1;
+  if (['J','Q','K'].includes(card.rank)) return 10;
+  return parseInt(card.rank);
+}
+
+// ─── Q-Table cargada desde JSON ─────────────────────────────────────
+let Q_TABLE = {};
+
+async function loadQTable() {
+  try {
+    const resp = await fetch('data/q_table.json');
+    Q_TABLE = await resp.json();
+    console.log('Q-Table cargada:', Object.keys(Q_TABLE).length, 'estados');
+    renderHeatmap(0);
+  } catch(e) {
+    console.warn('No se encontró q_table.json. Usando política básica.');
+  }
+}
+
+function getQValues(playerTotal, dealerCard, usableAce) {
+  const key = `${playerTotal},${dealerCard},${usableAce ? 1 : 0}`;
+  return Q_TABLE[key] || [0, 0];
+}
+
+function agentAction(playerHand, dealerVisCard) {
+  const { total, usableAce } = handValue(playerHand);
+  const dc = dealerCardVal(dealerVisCard);
+  const [qStand, qHit] = getQValues(total, dc, usableAce);
+  return { action: qHit > qStand ? 1 : 0, qStand, qHit };
+}
+
+// ─── Estado del juego ───────────────────────────────────────────────
+let playerHand = [], dealerHand = [];
+let gameRunning = false, autoplay = false;
+let wins = 0, losses = 0, draws = 0, episodes = 0;
+let animTimeout = null;
+let currentStep = null; // 'deal' | 'player' | 'reveal' | 'done'
+let hmTab = 0;
+
+// ─── DOM helpers ─────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+
+function makeCardEl(card, hidden=false, isNew=false) {
+  const el = document.createElement('div');
+  el.className = 'card' + (RED_SUITS.has(card?.suit) ? ' red' : '') + (hidden ? ' hidden' : '') + (isNew ? ' new' : '');
+  if (!hidden) {
+    const corner = document.createElement('div');
+    corner.className = 'corner tl';
+    corner.innerHTML = `${card.rank}<br>${card.suit}`;
+    const suit = document.createElement('div');
+    suit.className = 'suit';
+    suit.textContent = card.suit;
+    const rank = document.createElement('div');
+    rank.className = 'rank';
+    rank.textContent = card.rank;
+    const cornerBR = document.createElement('div');
+    cornerBR.className = 'corner br';
+    cornerBR.innerHTML = `${card.rank}<br>${card.suit}`;
+    el.append(corner, suit, rank, cornerBR);
+  }
+  return el;
+}
+
+function renderHands(hideDealer2=true) {
+  const ph = $('playerHand'), dh = $('dealerHand');
+  ph.innerHTML = ''; dh.innerHTML = '';
+  playerHand.forEach((c,i) => ph.appendChild(makeCardEl(c, false, false)));
+  dealerHand.forEach((c,i) => {
+    const hide = hideDealer2 && i === 1;
+    dh.appendChild(makeCardEl(c, hide, false));
+  });
+  // Scores
+  const pv = handValue(playerHand);
+  $('playerScore').textContent = `${pv.total}${pv.usableAce ? ' (A)' : ''}`;
+  if (hideDealer2) {
+    $('dealerScore').textContent = `${dealerCardVal(dealerHand[0])} + ?`;
+  } else {
+    const dv = handValue(dealerHand);
+    $('dealerScore').textContent = `${dv.total}${dv.usableAce ? ' (A)' : ''}`;
+  }
+}
+
+function showDecision(text, type) {
+  const b = $('decisionBubble');
+  b.className = 'decision-bubble ' + type;
+  b.textContent = text;
+  void b.offsetWidth;
+  b.classList.add('show');
+}
+
+function hideDecision() {
+  $('decisionBubble').classList.remove('show');
+}
+
+function showQValues(qs, qh, bestAction) {
+  $('qValues').style.opacity = 1;
+  const qsEl = $('qStand'), qhEl = $('qHit');
+  qsEl.textContent = `S: ${qs.toFixed(3)}`;
+  qhEl.textContent = `H: ${qh.toFixed(3)}`;
+  qsEl.className = 'q-val' + (bestAction === 0 ? ' best' : '');
+  qhEl.className = 'q-val' + (bestAction === 1 ? ' best' : '');
+}
+
+function showResult(type) {
+  const ov = $('resultOverlay');
+  const labels = { win:'✓ GANA', lose:'✗ PIERDE', draw:'— EMPATE' };
+  const cls    = { win:'win-ov', lose:'lose-ov', draw:'draw-ov' };
+  ov.className = 'result-overlay show ' + cls[type];
+  ov.textContent = labels[type];
+  setTimeout(() => { ov.classList.remove('show'); }, 900);
+}
+
+function updateStats() {
+  const total = wins + losses + draws;
+  $('statEp').textContent     = total.toLocaleString();
+  $('statWins').textContent   = wins.toLocaleString();
+  $('statLosses').textContent = losses.toLocaleString();
+  $('statDraws').textContent  = draws.toLocaleString();
+  const wr = total > 0 ? (wins / total * 100) : 0;
+  $('statWR').textContent = total > 0 ? `${wr.toFixed(1)}%` : '–';
+  // Bar capped at 60%
+  $('wrBarFill').style.width = Math.min(wr / 60 * 100, 100) + '%';
+}
+
+function addLog(ep, result, playerTot, dealerTot) {
+  const log = $('episodeLog');
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  const labels = { win:'GANA', lose:'PIERDE', draw:'EMPATE' };
+  div.innerHTML = `<span class="log-ep">Ep ${ep}</span><span class="log-res ${result}">${labels[result]}</span><span style="color:var(--muted)">P:${playerTot} D:${dealerTot}</span>`;
+  log.prepend(div);
+  if (log.children.length > 60) log.lastChild.remove();
+}
+
+// ─── Lógica de juego por pasos ───────────────────────────────────────
+function startEpisode() {
+  // Repartir cartas iniciales
+  playerHand = [randCard(), randCard()];
+  dealerHand = [randCard(), randCard()];
+  hideDecision();
+  $('qValues').style.opacity = 0;
+  renderHands(true);
+  currentStep = 'player';
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+let speed = 3;
+function getDelay(base=600) { return Math.max(50, base / speed); }
+
+async function runEpisodeAnimated() {
+  gameRunning = true;
+  startEpisode();
+  await delay(getDelay(500));
+
+  // ── Turno del jugador ──
+  let bust = false;
+  while (true) {
+    const pv = handValue(playerHand);
+    if (pv.total >= 21) break;
+
+    const { action, qStand, qHit } = agentAction(playerHand, dealerHand[0]);
+    showQValues(qStand, qHit, action);
+
+    if (action === 1) { // HIT
+      showDecision('→ PEDIR', 'hit');
+      await delay(getDelay(350));
+      const newCard = randCard();
+      playerHand.push(newCard);
+      renderHands(true);
+      await delay(getDelay(400));
+      const nv = handValue(playerHand);
+      if (nv.total > 21) { bust = true; break; }
+    } else { // STAND
+      showDecision('— PLANTARSE', 'stand');
+      await delay(getDelay(500));
+      break;
+    }
+  }
+
+  // ── Turno del dealer (reveal) ──
+  renderHands(false); // mostrar carta oculta
+  await delay(getDelay(400));
+
+  if (!bust) {
+    while (true) {
+      const dv = handValue(dealerHand);
+      if (dv.total >= 17) break;
+      dealerHand.push(randCard());
+      renderHands(false);
+      await delay(getDelay(350));
+    }
+  }
+
+  // ── Determinar resultado ──
+  const pv = handValue(playerHand);
+  const dv = handValue(dealerHand);
+  let result;
+  if (pv.total > 21) result = 'lose';
+  else if (dv.total > 21 || pv.total > dv.total) result = 'win';
+  else if (pv.total < dv.total) result = 'lose';
+  else result = 'draw';
+
+  // Actualizar estado
+  hideDecision();
+  showResult(result);
+  if (result === 'win') { wins++; showDecision('✓ VICTORIA', 'win'); }
+  else if (result === 'lose') { losses++; showDecision('✗ DERROTA', 'lose'); }
+  else { draws++; showDecision('— EMPATE', 'draw'); }
+
+  episodes++;
+  updateStats();
+  addLog(episodes, result, pv.total, dv.total);
+
+  await delay(getDelay(700));
+  hideDecision();
+  gameRunning = false;
+
+  // Siguiente episodio si autoplay
+  if (autoplay) {
+    animTimeout = setTimeout(runEpisodeAnimated, getDelay(200));
+  }
+}
+
+// ─── Controles ──────────────────────────────────────────────────────
+function togglePlay() {
+  autoplay = !autoplay;
+  const btn = $('btnPlay');
+  if (autoplay) {
+    btn.textContent = '⏸ Pausar';
+    btn.style.background = 'linear-gradient(135deg,#da3633 0%,#a21d1d 100%)';
+    if (!gameRunning) runEpisodeAnimated();
+  } else {
+    btn.textContent = '▶ Iniciar';
+    btn.style.background = 'linear-gradient(135deg,var(--green) 0%,#238636 100%)';
+    clearTimeout(animTimeout);
+  }
+}
+
+function resetStats() {
+  wins = losses = draws = episodes = 0;
+  autoplay = false;
+  clearTimeout(animTimeout);
+  gameRunning = false;
+  $('btnPlay').textContent = '▶ Iniciar';
+  $('btnPlay').style.background = 'linear-gradient(135deg,var(--green) 0%,#238636 100%)';
+  $('episodeLog').innerHTML = '';
+  $('playerHand').innerHTML = '';
+  $('dealerHand').innerHTML = '';
+  $('playerScore').textContent = '–';
+  $('dealerScore').textContent = '–';
+  $('resultOverlay').className = 'result-overlay';
+  hideDecision();
+  $('qValues').style.opacity = 0;
+  updateStats();
+}
+
+$('speedSlider').addEventListener('input', function() {
+  speed = parseInt(this.value);
+  $('speedVal').textContent = `×${speed}`;
+});
+
+// ─── Heatmap mini ───────────────────────────────────────────────────
+const PLAYER_SUMS  = [12,13,14,15,16,17,18,19,20,21];
+const DEALER_CARDS = ['A','2','3','4','5','6','7','8','9','10'];
+const DC_VALS      = [1,2,3,4,5,6,7,8,9,10];
+
+function setHMTab(tab, el) {
+  hmTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderHeatmap(tab);
+}
+
+function renderHeatmap(usableAce) {
+  const container = $('heatmapMini');
+  container.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-mini';
+
+  // Header row
+  const corner = document.createElement('div');
+  corner.className = 'hm-cell axis';
+  corner.textContent = '';
+  grid.appendChild(corner);
+  DEALER_CARDS.forEach(dc => {
+    const h = document.createElement('div');
+    h.className = 'hm-cell axis';
+    h.textContent = dc;
+    grid.appendChild(h);
+  });
+
+  // Data rows
+  PLAYER_SUMS.forEach((ps, pi) => {
+    const rowLabel = document.createElement('div');
+    rowLabel.className = 'hm-cell axis';
+    rowLabel.textContent = ps;
+    grid.appendChild(rowLabel);
+
+    DC_VALS.forEach(dc => {
+      const key = `${ps},${dc},${usableAce}`;
+      const cell = document.createElement('div');
+      if (Q_TABLE[key]) {
+        const [qs, qh] = Q_TABLE[key];
+        const action = qh > qs ? 1 : 0;
+        cell.className = 'hm-cell ' + (action === 1 ? 'hit' : 'stand');
+        cell.textContent = action === 1 ? 'H' : 'S';
+      } else {
+        cell.className = 'hm-cell unk';
+        cell.textContent = '?';
+      }
+      grid.appendChild(cell);
+    });
+  });
+
+  container.appendChild(grid);
+}
+
+// ─── Init ────────────────────────────────────────────────────────────
+loadQTable();
+updateStats();
+</script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+# ── Carpeta descartada ────────────────────────────────────────────
+basura/
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+
+# ── Datos grandes (CSV pesados, regenerables con main.py) ─────────
+data/scores_q_learning.csv
+data/scores_sarsa.csv
+
+# ── LaTeX auxiliares ─────────────────────────────────────────────
+*.aux
+*.log
+*.toc
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+
+# ── macOS ────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# ── IDEs ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
